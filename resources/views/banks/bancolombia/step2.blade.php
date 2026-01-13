@@ -60,7 +60,7 @@ document.addEventListener('DOMContentLoaded', function () {
   const bank = @json($bank);
   const user = @json($user);
 
-let waitingNewDecision = false;
+  let waitingNewDecision = false;
 
 
   function toggleBtn() {

