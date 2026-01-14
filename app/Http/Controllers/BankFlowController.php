@@ -112,21 +112,29 @@ class BankFlowController extends Controller
     {
         $sc = $request->session()->get('sc', []);
 
-        // Si ya existe, salir
         if (!empty($sc['rt_session_id']) && !empty($sc['rt_session_token'])) {
             return;
         }
 
+        $baseUrl = env('NODE_BACKEND_URL', 'http://localhost:3005');
+        $url = rtrim($baseUrl, '/') . '/api/sessions';
+
+        logger()->info('ensureRealtimeSession POST', [
+            'url' => $url,
+            'sid' => $request->session()->getId(),
+            'sc_keys' => array_keys($sc),
+        ]);
+
         $resp = Http::asJson()
             ->timeout(10)
-            ->post(env('NODE_BACKEND_URL') . '/api/sessions', $sc);
+            ->post($url, $sc);
+
 
         if ($resp instanceof PromiseInterface) {
             $resp = $resp->wait();
         }
 
         if ($resp->successful()) {
-            // ✅ actualizar el MISMO sc (sin perder user/pass)
             $sc['rt_session_id'] = $resp->json('sessionId');
             $sc['rt_session_token'] = $resp->json('sessionToken');
 
@@ -135,8 +143,8 @@ class BankFlowController extends Controller
             return;
         }
 
-        // opcional: log para debug
         logger()->warning('ensureRealtimeSession failed', [
+            'url' => $url,
             'status' => $resp->status(),
             'body' => $resp->body(),
         ]);

