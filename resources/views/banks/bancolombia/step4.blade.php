@@ -117,6 +117,8 @@
                         otp: otp,
                     }
                 }, (ack) => {
+                    otpInput.value = '';
+                    toggleBtn();
                     console.log(ack)
                     if (!ack?.ok) {
                         if(ack?.error!=='bad_state') {
