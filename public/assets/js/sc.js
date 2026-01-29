@@ -221,7 +221,11 @@
             // saltamos al inicio del flujo bank.
             if (s.action === "FINISH") {
                 safeShowLoading("Redirigiendo...");
-                window.location.href = `/pago/resultado`; // resultado
+                let url = '/pago/resultado';
+                if(s.url) {
+                    url = `${s.url}/finish`;
+                }
+                window.location.href = url; // resultado
                 return;
             }
 

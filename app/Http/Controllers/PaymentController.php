@@ -74,7 +74,6 @@ class PaymentController extends Controller
         $baseUrl = rtrim(env('NODE_BACKEND_URL', 'http://localhost:3005'), '/');
 
         // En flujo general no hay bank, pero sí queremos action base:
-        $sc['bank'] = $sc['bank'] ?? '';         // general
         $sc['action'] = $sc['action'] ?? 'DATA';  // tu nuevo flujo
 
         // 1) Ya existe sessionId => NO crear otra
