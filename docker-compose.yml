@@ -1,10 +1,22 @@
 services:
   app:
-    image: php:8.3-fpm
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
     container_name: esp_app
     working_dir: /var/www/html
     volumes:
       - ./:/var/www/html
+    depends_on:
+      - redis
+    networks:
+      - devnet
+
+  redis:
+    image: redis:alpine
+    container_name: esp_redis
+    volumes:
+      - redis_data:/data
     networks:
       - devnet
 
@@ -36,3 +48,6 @@ services:
 networks:
   devnet:
     driver: bridge
+
+volumes:
+  redis_data:
